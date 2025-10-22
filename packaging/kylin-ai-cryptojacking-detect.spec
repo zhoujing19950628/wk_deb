@@ -1,40 +1,46 @@
+%global pypi_name kylin-ai-cryptojacking-detect
+
 Name:           kylin-ai-cryptojacking-detect
-Version:        0.1.0
-Release:        %autorelease
-Summary:        Cryptojacking detection suite (L1/L2/L3)
+Version:        0.1.1
+Release:        1%{?dist}
+Summary:        Multi-layer cryptominer detector (L1/L2/L3)
 License:        MIT
 URL:            https://example.com
-
-# 把连字符转成下划线，匹配 sdist 的命名
-%global srcname %{lua: n = rpm.expand("%{name}"); print((n:gsub("%-","_")))}
-
-Source0:        %{srcname}-%{version}.tar.gz
+Source0:        %{pypi_name}-%{version}.tar.gz
 BuildArch:      noarch
+
 BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
-# 按需增减运行依赖
+
+# 运行时依赖（根据你的代码）
+Requires:       python3
+Requires:       python3dist(pyyaml)
 Requires:       python3dist(psutil)
 Requires:       python3dist(pandas)
 
 %description
-Single package shipping L1/L2/L3 modules and the CLI.
+Multi-layer cryptominer detection tool: L1 system signals, L2 process scan, L3 memory forensics. Installs `miner-sentinel` CLI.
 
 %prep
-%autosetup -n %{srcname}-%{version}
+%setup -q -n %{pypi_name}-%{version}
 
 %build
 %pyproject_wheel
 
 %install
 %pyproject_install
-# 如果你的 CLI 在 src/msentinel_cli/cli.py（从你日志看是这样）：
+# 把 Python 包文件列表保存到宏 %{pyproject_files}
 %pyproject_save_files msentinel_cli miner_sentinel_l1 miner_sentinel_l2 miner_sentinel_l3
-# 若你的 CLI 真在 src/cli.py，请把上一行的 msentinel_cli 改成 cli
 
+%check
+# 可选：跑你的自测
+# python3 -c "import msentinel_cli"
 
-%files -f %{pyproject_files}
-%{_bindir}/miner-sentinel
-%doc readme.md
-%{_bindir}/miner-sentinel
-# 如果你还保留了 LICENSE：
+%files -n %{name} -f %{pyproject_files}
 %license LICENSE
+%doc README.md README README.rst readme.md
+%{_bindir}/miner-sentinel
+
+%changelog
+* Wed Oct 22 2025 You <you@example.com> - 0.1.1-1
+- Include YAML/JSON/PKL resources; install console script; rpm repackage.
