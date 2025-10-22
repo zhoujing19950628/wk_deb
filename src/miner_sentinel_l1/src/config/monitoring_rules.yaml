@@ -1,0 +1,81 @@
+# 监控时间窗口设置
+time_window_seconds: 60
+sampling_interval_seconds: 1
+cooldown_period_seconds: 120
+
+trigger:
+  dwell_seconds_warning: 30     # WARNING 连续 >=30s 才触发 L2
+  dwell_seconds_critical: 30    # CRITICAL 连续 >=30s 才触发 L2
+
+
+# 指标评估规则
+metrics:
+  memory_usage:
+    enabled: true
+    warning_threshold: 0.90
+    critical_threshold: 0.95
+    warning_score: 15
+    critical_score: 25
+
+  cache_performance:
+    enabled: true
+    # cache_hit_ratio 越低越糟：0.90 触发告警，0.80 视为更严重
+    warning_threshold: 0.90
+    critical_threshold: 0.80
+    warning_score: 15
+    critical_score: 30
+
+  page_faults:
+    enabled: true
+    warning_threshold: 20
+    critical_threshold: 100
+    warning_score: 10
+    critical_score: 20
+
+  memory_pressure:
+    enabled: true
+    # /proc/pressure/memory 的 some/full（建议用 avg10）
+    some_warning_threshold: 5.0
+    full_warning_threshold: 1.0
+    some_weight: 10
+    full_weight: 15
+
+  swap_activity:
+    enabled: true
+    warning_threshold: 300
+    critical_threshold: 1000
+    warning_score: 5
+    critical_score: 10
+
+  # --- 新增：CPU 型负载的两类信号 ---
+
+  cpu_pressure:
+    enabled: true
+    # 期望采集器提供 windowed["cpu_some_pressure"]（/proc/pressure/cpu: some，建议用 avg10）
+    # XMRig 这类 CPU 密集、低内存压力的负载，CPU PSI 会长期 >2%，小核/小 vCPU 时更明显
+    some_warning_threshold: 2.0
+    some_weight: 15
+    # 对 CPU，内核并没有 "full" 概念；如你的分析器需要该键，可保留 full_weight=0 以兼容
+    full_weight: 0
+
+  cpu_utilization:
+    enabled: true
+    # 期望采集器提供 windowed["cpu_utilization"]（0~1）
+    warning_threshold: 0.80
+    critical_threshold: 0.95
+    warning_score: 15
+    critical_score: 25
+
+# 决策规则
+decision:
+  warning_threshold: 10
+  critical_threshold: 60
+  min_categories_for_critical: 2
+
+# 恢复条件
+recovery_conditions:
+  recovery_time_seconds: 20
+  max_memory_usage: 0.85
+  min_cache_hit_ratio: 0.95
+  max_major_faults_per_sec: 5
+  max_swap_activity_per_sec: 100

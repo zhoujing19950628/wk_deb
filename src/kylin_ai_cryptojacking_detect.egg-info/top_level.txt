@@ -1,0 +1,5 @@
+cli
+miner_sentinel_l1
+miner_sentinel_l2
+miner_sentinel_l3
+msentinel_cli

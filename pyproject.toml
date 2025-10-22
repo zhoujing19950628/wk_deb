@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kylin-ai-cryptojacking-detect"        # 整个项目=一个发行包(=一个RPM)
+version = "0.1.0"
+description = "Cryptojacking detection suite (L1/L2/L3)"
+readme = "readme.md"
+requires-python = ">=3.8"
+dependencies = [
+  "psutil",
+  "pandas",
+  "pyyaml"   # ← 新增
+]
+
+# 安装后会生成一个命令：miner-sentinel
+# 你的主文件在 src/cli.py 且包含 main()
+[project.scripts]
+miner-sentinel = "msentinel_cli.cli:main"
+
+
+[tool.setuptools]
+# 采用 src 布局：所有顶级包/模块都在 ./src 下
+package-dir = { "" = "src" }
+# 单文件模块（src/cli.py）也打进包；如果没有 cli.py，可删掉这一行
+py-modules = ["cli"]
+
+# 自动发现并打包三层及（可选）msentinel_cli
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["miner_sentinel_l1*", "miner_sentinel_l2*", "miner_sentinel_l3*", "msentinel_cli*"]
+
+# 如需把配置文件一起打包（按需增减）
+[tool.setuptools.package-data]
+"miner_sentinel_l1" = ["config/**"]
+"miner_sentinel_l2" = ["config/**"]
