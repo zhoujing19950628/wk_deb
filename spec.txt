@@ -1,0 +1,90 @@
+cat > ~/rpmbuild/SPECS/miner-sentinel.spec <<'SPEC'
+Name:           miner-sentinel
+Version:        0.9.0
+Release:        1%{?dist}
+Summary:        Cryptojacking detector (Python)
+License:        MIT
+URL:            https://example.com/miner-sentinel
+
+Source0:        %{name}-%{version}.tar.gz
+Source1:        wheels.tar.gz
+
+BuildRequires:  rpm-build
+BuildRequires:  python3 python3-devel python3-pip python3-virtualenv
+Requires:       systemd
+
+%description
+Miner Sentinel - multi-layer cryptojacking detection.
+
+%prep
+%autosetup -n %{name}-%{version}
+mkdir wheels
+tar -xzf %{SOURCE1} -C wheels
+
+%build
+# 使用 venv 安装离线 wheels，无需额外编译
+
+%install
+mkdir -p %{buildroot}/opt/%{name}
+python3 -m venv %{buildroot}/opt/%{name}/venv
+. %{buildroot}/opt/%{name}/venv/bin/activate
+pip install --no-index --find-links file://%{_builddir}/%{name}-%{version}/wheels .
+deactivate
+
+install -d %{buildroot}%{_bindir}
+cat > %{buildroot}%{_bindir}/%{name} << 'EOF'
+#!/bin/sh
+exec /opt/miner-sentinel/venv/bin/miner-sentinel "$@"
+EOF
+chmod 0755 %{buildroot}%{_bindir}/%{name}
+
+install -d %{buildroot}/etc/%{name}
+[ -f config/monitoring_rules.yaml ] && \
+  install -m 0644 config/monitoring_rules.yaml %{buildroot}/etc/%{name}/monitoring_rules.yaml || :
+install -d %{buildroot}/var/lib/%{name} %{buildroot}/var/log/%{name}
+
+install -d %{buildroot}%{_unitdir}
+cat > %{buildroot}%{_unitdir}/%{name}.service << 'EOF'
+[Unit]
+Description=Miner Sentinel (cryptojacking detector)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/miner-sentinel --monitor /etc/miner-sentinel/monitoring_rules.yaml
+WorkingDirectory=/var/lib/miner-sentinel
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+%post
+/bin/systemctl daemon-reload >/dev/null 2>&1 || :
+/bin/systemctl enable %{name}.service >/dev/null 2>&1 || :
+/bin/systemctl try-restart %{name}.service >/dev/null 2>&1 || :
+
+%preun
+if [ "$1" -eq 0 ]; then
+  /bin/systemctl stop %{name}.service >/dev/null 2>&1 || :
+  /bin/systemctl --no-reload disable %{name}.service >/dev/null 2>&1 || :
+fi
+
+%postun
+/bin/systemctl daemon-reload >/dev/null 2>&1 || :
+
+%files
+%{_bindir}/%{name}
+%{_unitdir}/%{name}.service
+/opt/%{name}
+%dir /var/lib/%{name}
+%dir /var/log/%{name}
+%config(noreplace) /etc/%{name}/monitoring_rules.yaml
+%doc README* CHANGELOG* LICENSE*
+
+%changelog
+* Wed Oct 22 2025 You <you@example.com> - 0.9.0-1
+- Initial RPM without systemd-rpm-macros
+SPEC
