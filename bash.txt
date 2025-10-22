@@ -1,0 +1,13 @@
+# 在项目根执行
+sudo docker run --rm -it -v "$PWD":/src -w /src fedora:40 bash -lc '
+  set -e
+  dnf -y install rpm-build redhat-rpm-config python3-devel python3-build \
+                 python3-setuptools python3-wheel pyproject-rpm-macros make util-linux
+  useradd -m builder && chown -R builder:builder /src
+  runuser -u builder -- bash -lc "make clean && make rpm"
+
+  echo "== 验证资源是否进包 =="
+  rpmfile=$(ls .rpmbuild/RPMS/noarch/kylin-ai-cryptojacking-detect-*.noarch.rpm | head -n1)
+  rpm -qlp "$rpmfile" | grep -E "miner-sentinel$|monitoring_rules.yaml" || true
+  echo "打包完成：$rpmfile"
+'
