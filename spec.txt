@@ -6,6 +6,7 @@ Summary:        Cryptojacking detector (Python)
 License:        MIT
 URL:            https://example.com/miner-sentinel
 
+# 源码与可选离线依赖
 Source0:        %{name}-%{version}.tar.gz
 Source1:        wheels.tar.gz
 
@@ -17,20 +18,32 @@ Requires:       systemd
 Miner Sentinel - multi-layer cryptojacking detection.
 
 %prep
+# 解 Source0，并把 wheels 解到 ./wheels（若不存在也没关系）
 %autosetup -n %{name}-%{version}
-mkdir wheels
-tar -xzf %{SOURCE1} -C wheels
+mkdir -p wheels
+if [ -f %{SOURCE1} ]; then
+  tar -xzf %{SOURCE1} -C .
+fi
 
 %build
-# 使用 venv 安装离线 wheels，无需额外编译
+# 无需编译
 
 %install
+# 1) 放到 /opt 并创建 venv
 mkdir -p %{buildroot}/opt/%{name}
 python3 -m venv %{buildroot}/opt/%{name}/venv
 . %{buildroot}/opt/%{name}/venv/bin/activate
-pip install --no-index --find-links file://%{_builddir}/%{name}-%{version}/wheels .
+
+# 2) 优先离线安装；若无 wheels.tar.gz，则在线安装项目自身（以及其依赖）
+if [ -d wheels/wheels ]; then
+  pip install --no-index --find-links file://%{_builddir}/%{name}-%{version}/wheels .
+else
+  # 在线安装需要你的项目根里有 pyproject.toml 或 setup.py
+  pip install .
+fi
 deactivate
 
+# 3) 入口包装脚本：/usr/bin/miner-sentinel
 install -d %{buildroot}%{_bindir}
 cat > %{buildroot}%{_bindir}/%{name} << 'EOF'
 #!/bin/sh
@@ -38,11 +51,13 @@ exec /opt/miner-sentinel/venv/bin/miner-sentinel "$@"
 EOF
 chmod 0755 %{buildroot}%{_bindir}/%{name}
 
+# 4) 配置/数据/日志目录
 install -d %{buildroot}/etc/%{name}
 [ -f config/monitoring_rules.yaml ] && \
   install -m 0644 config/monitoring_rules.yaml %{buildroot}/etc/%{name}/monitoring_rules.yaml || :
 install -d %{buildroot}/var/lib/%{name} %{buildroot}/var/log/%{name}
 
+# 5) systemd 单元（可按需改启动参数）
 install -d %{buildroot}%{_unitdir}
 cat > %{buildroot}%{_unitdir}/%{name}.service << 'EOF'
 [Unit]
@@ -61,6 +76,7 @@ RestartSec=2
 WantedBy=multi-user.target
 EOF
 
+# —— 不依赖 systemd-rpm-macros 的裸脚本钩子 ——
 %post
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
 /bin/systemctl enable %{name}.service >/dev/null 2>&1 || :
@@ -86,5 +102,5 @@ fi
 
 %changelog
 * Wed Oct 22 2025 You <you@example.com> - 0.9.0-1
-- Initial RPM without systemd-rpm-macros
+- Initial RPM (bundled venv; offline wheels optional)
 SPEC
